@@ -28,10 +28,84 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Management;
+using SQLite;
 
 namespace FileParser.Data {
     
     public static class DriveUtilities {
+
+
+        public static List<DriveInformation> ProcessDriveList(SQLiteConnection db) {
+            db.BeginTransaction();
+
+            var cmd = db.CreateCommand("Select * from DriveInformation");
+
+            var hdCollection = cmd.ExecuteQuery<DriveInformation>();
+
+            var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive");
+
+            foreach (ManagementObject wmi_HD in searcher.Get()) {
+
+                var query = "ASSOCIATORS OF {Win32_DiskDrive.DeviceID='" + wmi_HD["DeviceID"] + "'} WHERE AssocClass = Win32_DiskDriveToDiskPartition";
+
+                var searcher2 = new ManagementObjectSearcher(query);
+
+                foreach (ManagementObject association in searcher2.Get()) {
+
+                    query = "ASSOCIATORS OF {Win32_DiskPartition.DeviceID='" + association["DeviceID"] + "'} WHERE AssocClass = Win32_LogicalDiskToPartition";
+                    var searcher3 = new ManagementObjectSearcher(query);
+                    foreach (ManagementObject driveLetter in searcher3.Get()) {
+                        //we want one added for every drive letter on the disk.
+                        var dl = driveLetter["DeviceID"].ToString().Substring(0, 1);
+                        var hd = hdCollection.FirstOrDefault(drive => drive.DriveLetter == dl);
+                        if (hd == null) {
+                            hd = new DriveInformation();
+                            hd.DriveLetter = dl;
+                            hd.Model = wmi_HD["Model"].ToString();
+                            hd.DriveType = wmi_HD["InterfaceType"].ToString();
+                            hdCollection.Add(hd);
+                            db.Insert(hd);
+                        }
+                        else {
+                            hd.Model = wmi_HD["Model"].ToString();
+                            hd.DriveType = wmi_HD["InterfaceType"].ToString();
+                            db.Update(hd);
+                        }
+                    }
+                }
+            }
+
+            searcher = new ManagementObjectSearcher("Select * from Win32_LogicalDisk");
+            var moc = searcher.Get();
+
+            foreach (ManagementObject mo in moc) {
+                string driveLetter = mo["DeviceId"].ToString().Substring(0, 1);
+                var vn = (mo["VolumeName"] ?? string.Empty).ToString().Trim();
+                var vsn = (mo["VolumeSerialNumber"] ?? string.Empty).ToString().Trim();
+                var driveType = mo["DriveType"].ToString();
+
+                var hd = hdCollection.FirstOrDefault(item => item.DriveLetter == driveLetter);
+                if (hd == null) {
+                    hd = new DriveInformation() {
+                        DriveLetter = driveLetter
+                    };
+                    hdCollection.Add(hd);
+                    hd.DriveType = driveType;
+                    hd.SerialNo = vsn;
+                    hd.VolumeName = vn;
+                    db.Insert(hd);
+                }
+                else {
+                    hd.DriveType = driveType;
+                    hd.SerialNo = vsn;
+                    hd.VolumeName = vn;
+                    db.Update(hd);
+                }
+            }
+
+            db.Commit();
+            return hdCollection;
+        }
 
         /// <summary>
         /// method to retrieve the selected HDD's serial number

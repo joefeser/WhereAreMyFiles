@@ -34,6 +34,18 @@ namespace FileParser.Data {
 
     public static class DatabaseLookups {
 
+        public static void CreateTables(SQLiteConnection db) {
+            db.BeginTransaction();
+
+            db.CreateTable<DriveInformation>();
+            db.CreateTable<DirectoryInformation>();
+            db.CreateTable<FileInformation>();
+            db.CreateTable<FileAttributeInformation>();
+            db.CreateTable<FileAttribute>();
+
+            db.Commit();
+        }
+
         private static List<FileAttribute> _fileAttributes = null;
 
         public static int GetAttributeId(SQLiteConnection db, string name) {
