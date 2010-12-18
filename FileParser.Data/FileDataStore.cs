@@ -41,86 +41,9 @@ namespace FileParser.Data {
             //TODO ensure directory exists for the database
             using (var db = new SQLiteConnection(databasePath)) {
 
-                db.BeginTransaction();
+                CreateTables(db);
 
-                db.CreateTable<DriveInformation>();
-                //db.CreateTable<DrivePropertyInformation>();
-                db.CreateTable<DirectoryInformation>();
-                db.CreateTable<FileInformation>();
-                db.CreateTable<FileAttributeInformation>();
-                db.CreateTable<FileAttribute>();
-
-                db.Commit();
-
-                db.BeginTransaction();
-
-                var cmd = db.CreateCommand("Select * from DriveInformation");
-
-                var hdCollection = cmd.ExecuteQuery<DriveInformation>(); //= new List<DriveInformation>();
-
-                var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive");
-
-                foreach (ManagementObject wmi_HD in searcher.Get()) {
-
-                    var query = "ASSOCIATORS OF {Win32_DiskDrive.DeviceID='" + wmi_HD["DeviceID"] + "'} WHERE AssocClass = Win32_DiskDriveToDiskPartition";
-                    //Set wmiDiskPartitions = wmiServices.ExecQuery(query)
-
-                    var searcher2 = new ManagementObjectSearcher(query);
-
-                    foreach (ManagementObject association in searcher2.Get()) {
-
-                        query = "ASSOCIATORS OF {Win32_DiskPartition.DeviceID='" + association["DeviceID"] + "'} WHERE AssocClass = Win32_LogicalDiskToPartition";
-                        var searcher3 = new ManagementObjectSearcher(query);
-                        foreach (ManagementObject driveLetter in searcher3.Get()) {
-                            //we want one added for every drive letter on the disk.
-                            var dl = driveLetter["DeviceID"].ToString().Substring(0, 1);
-                            var hd = hdCollection.FirstOrDefault(drive => drive.DriveLetter == dl);
-                            if (hd == null) {
-                                hd = new DriveInformation();
-                                hd.DriveLetter = dl;
-                                hd.Model = wmi_HD["Model"].ToString();
-                                hd.DriveType = wmi_HD["InterfaceType"].ToString();
-                                hdCollection.Add(hd);
-                                db.Insert(hd);
-                            }
-                            else {
-                                hd.Model = wmi_HD["Model"].ToString();
-                                hd.DriveType = wmi_HD["InterfaceType"].ToString();
-                                db.Update(hd);
-                            }
-                        }
-                    }
-                }
-
-                searcher = new ManagementObjectSearcher("Select * from Win32_LogicalDisk");
-                var moc = searcher.Get();
-
-                foreach (ManagementObject mo in moc) {
-                    string driveLetter = mo["DeviceId"].ToString().Substring(0, 1);
-                    var vn = (mo["VolumeName"] ?? string.Empty).ToString().Trim();
-                    var vsn = (mo["VolumeSerialNumber"] ?? string.Empty).ToString().Trim();
-                    var driveType = mo["DriveType"].ToString();
-
-                    var hd = hdCollection.FirstOrDefault(item => item.DriveLetter == driveLetter);
-                    if (hd == null) {
-                        hd = new DriveInformation() {
-                            DriveLetter = driveLetter
-                        };
-                        hdCollection.Add(hd);
-                        hd.DriveType = driveType;
-                        hd.SerialNo = vsn;
-                        hd.VolumeName = vn;
-                        db.Insert(hd);
-                    }
-                    else {
-                        hd.DriveType = driveType;
-                        hd.SerialNo = vsn;
-                        hd.VolumeName = vn;
-                        db.Update(hd);
-                    }
-                }
-
-                db.Commit();
+                var hdCollection = ProcessDriveList(db);
 
                 var start = DateTime.Now;
 
@@ -135,6 +58,90 @@ namespace FileParser.Data {
 
                 db.Close();
             }
+        }
+
+        private static void CreateTables(SQLiteConnection db) {
+            db.BeginTransaction();
+
+            db.CreateTable<DriveInformation>();
+            db.CreateTable<DirectoryInformation>();
+            db.CreateTable<FileInformation>();
+            db.CreateTable<FileAttributeInformation>();
+            db.CreateTable<FileAttribute>();
+
+            db.Commit();
+        }
+
+        private static List<DriveInformation> ProcessDriveList(SQLiteConnection db) {
+            db.BeginTransaction();
+
+            var cmd = db.CreateCommand("Select * from DriveInformation");
+
+            var hdCollection = cmd.ExecuteQuery<DriveInformation>();
+
+            var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive");
+
+            foreach (ManagementObject wmi_HD in searcher.Get()) {
+
+                var query = "ASSOCIATORS OF {Win32_DiskDrive.DeviceID='" + wmi_HD["DeviceID"] + "'} WHERE AssocClass = Win32_DiskDriveToDiskPartition";
+
+                var searcher2 = new ManagementObjectSearcher(query);
+
+                foreach (ManagementObject association in searcher2.Get()) {
+
+                    query = "ASSOCIATORS OF {Win32_DiskPartition.DeviceID='" + association["DeviceID"] + "'} WHERE AssocClass = Win32_LogicalDiskToPartition";
+                    var searcher3 = new ManagementObjectSearcher(query);
+                    foreach (ManagementObject driveLetter in searcher3.Get()) {
+                        //we want one added for every drive letter on the disk.
+                        var dl = driveLetter["DeviceID"].ToString().Substring(0, 1);
+                        var hd = hdCollection.FirstOrDefault(drive => drive.DriveLetter == dl);
+                        if (hd == null) {
+                            hd = new DriveInformation();
+                            hd.DriveLetter = dl;
+                            hd.Model = wmi_HD["Model"].ToString();
+                            hd.DriveType = wmi_HD["InterfaceType"].ToString();
+                            hdCollection.Add(hd);
+                            db.Insert(hd);
+                        }
+                        else {
+                            hd.Model = wmi_HD["Model"].ToString();
+                            hd.DriveType = wmi_HD["InterfaceType"].ToString();
+                            db.Update(hd);
+                        }
+                    }
+                }
+            }
+
+            searcher = new ManagementObjectSearcher("Select * from Win32_LogicalDisk");
+            var moc = searcher.Get();
+
+            foreach (ManagementObject mo in moc) {
+                string driveLetter = mo["DeviceId"].ToString().Substring(0, 1);
+                var vn = (mo["VolumeName"] ?? string.Empty).ToString().Trim();
+                var vsn = (mo["VolumeSerialNumber"] ?? string.Empty).ToString().Trim();
+                var driveType = mo["DriveType"].ToString();
+
+                var hd = hdCollection.FirstOrDefault(item => item.DriveLetter == driveLetter);
+                if (hd == null) {
+                    hd = new DriveInformation() {
+                        DriveLetter = driveLetter
+                    };
+                    hdCollection.Add(hd);
+                    hd.DriveType = driveType;
+                    hd.SerialNo = vsn;
+                    hd.VolumeName = vn;
+                    db.Insert(hd);
+                }
+                else {
+                    hd.DriveType = driveType;
+                    hd.SerialNo = vsn;
+                    hd.VolumeName = vn;
+                    db.Update(hd);
+                }
+            }
+
+            db.Commit();
+            return hdCollection;
         }
 
         private static void ProcessFolder(SQLiteConnection db, List<DriveInformation> hdCollection, List<string> arrHeaders, string processPath) {
@@ -189,7 +196,6 @@ namespace FileParser.Data {
                                     AttributeId = DatabaseLookups.GetAttributeId(db, header),
                                     Value = value
                                 });
-                                //sw.WriteLine("{0}\t{1}: {2}", i, header, value);
                             }
                         }
 
@@ -198,7 +204,7 @@ namespace FileParser.Data {
                             if (fi.Exists) {
                                 FileInformation fileInfo = folderItems.FirstOrDefault(info => info.FileName.Equals(fi.Name, StringComparison.OrdinalIgnoreCase));
 
-                                bool isNew = false; //test
+                                bool isNew = false;
 
                                 if (fileInfo == null) {
                                     fileInfo = new FileInformation() {
