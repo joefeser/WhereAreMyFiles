@@ -21,40 +21,38 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
- */
+*/
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.IO;
+using System.Runtime.InteropServices;
 
 namespace FileParser.Data {
-    
-    public static class HelperMethods {
 
-        public static string ComputeShaHash(string path) {
-            if (!File.Exists(path)) {
-                return string.Empty;
-            }
-            using (var stream = File.OpenRead(path)) {
-                return ComputeShaHash(stream);
-            }
-        }
+    public static class Win32Calls {
 
-        public static string ComputeShaHash(Stream stream) {
-            var hasher = System.Security.Cryptography.SHA1Managed.Create();
-            var hash = hasher.ComputeHash(stream);
+        [DllImport("kernel32.dll")]
+        private static extern long GetVolumeInformation(string PathName, StringBuilder VolumeNameBuffer, UInt32 VolumeNameSize,
+            ref UInt32 VolumeSerialNumber, ref UInt32 MaximumComponentLength, ref UInt32 FileSystemFlags,
+            StringBuilder FileSystemNameBuffer, UInt32 FileSystemNameSize);
 
-            return ToHexString(hash);
-        }
+        /// <summary>
+        /// Not used at this time
+        /// </summary>
+        /// <param name="driveLetter"></param>
+        /// <returns></returns>
+        public static string GetVolumeSerial(string driveLetter) {
+            uint serNum = 0;
+            uint maxCompLen = 0;
+            StringBuilder VolLabel = new StringBuilder(256); // Label
+            UInt32 VolFlags = new UInt32();
+            StringBuilder FSName = new StringBuilder(256); // File System Name
+            driveLetter += ":\\"; // fix up the passed-in drive letter for the API call
+            long Ret = GetVolumeInformation(driveLetter, VolLabel, (UInt32)VolLabel.Capacity, ref serNum, ref maxCompLen, ref VolFlags, FSName, (UInt32)FSName.Capacity);
 
-        public static string ToHexString(byte[] bytes) {
-
-            if (bytes == null || bytes.Length == 0)
-                return string.Empty;
-
-            return bytes.Aggregate(new StringBuilder(), (sb, b) => sb.AppendFormat("{0:X2}", b))
-                        .ToString();
+            return Convert.ToString(serNum);
         }
     }
 }
