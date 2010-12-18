@@ -198,7 +198,7 @@ namespace FileParser.Data {
                             if (fi.Exists) {
                                 FileInformation fileInfo = folderItems.FirstOrDefault(info => info.FileName.Equals(fi.Name, StringComparison.OrdinalIgnoreCase));
 
-                                bool isNew = false;
+                                bool isNew = false; //test
 
                                 if (fileInfo == null) {
                                     fileInfo = new FileInformation() {
