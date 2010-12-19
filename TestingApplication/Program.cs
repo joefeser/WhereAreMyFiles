@@ -36,7 +36,7 @@ namespace TestingApplication {
 
             FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"D:\");
             //FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"D:\!!!!ToCopy");
-
+            Console.WriteLine();
         }
     }
 

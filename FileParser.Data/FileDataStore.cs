@@ -104,14 +104,18 @@ namespace FileParser.Data {
                             var headerList = new List<FileAttributeInformation>();
 
                             for (int i = 0; i < arrHeaders.Count; i++) {
+                                
                                 var header = arrHeaders[i];
-                                var value = folder.GetDetailsOf(item.FolderItem, i);
 
-                                if (!string.IsNullOrWhiteSpace(value)) {
-                                    headerList.Add(new FileAttributeInformation() {
-                                        AttributeId = DatabaseLookups.GetAttributeId(db, header),
-                                        Value = value
-                                    });
+                                if (!IgnoreHeader(header)) {
+                                    var value = folder.GetDetailsOf(item.FolderItem, i);
+
+                                    if (!string.IsNullOrWhiteSpace(value)) {
+                                        headerList.Add(new FileAttributeInformation() {
+                                            AttributeId = DatabaseLookups.GetAttributeId(db, header),
+                                            Value = value
+                                        });
+                                    }
                                 }
                             }
 
@@ -166,6 +170,15 @@ namespace FileParser.Data {
                 Console.WriteLine(ex.ToString());
             }
 
+        }
+
+        private static bool IgnoreHeader(string header) {
+            var ignoreList = new List<string>(new string[] { "Name", "Size", "Date modified", 
+                                    "Date created", "Date accessed", "Filename", 
+                                    "Folder name", "Folder path", "Folder", "Path" });
+
+            var ignore = ignoreList.Any(il => il.Equals(header, StringComparison.OrdinalIgnoreCase));
+            return ignore;
         }
 
         private static void SetFileInformation(FileInfo fi, FileInformation fileInfo) {
