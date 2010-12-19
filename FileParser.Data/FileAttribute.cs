@@ -28,9 +28,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using SQLite;
+using System.Diagnostics;
 
 namespace FileParser.Data {
 
+    [DebuggerDisplay("AttributeId = {AttributeId} Name = {Name}")]
     public class FileAttribute {
 
         [AutoIncrement]

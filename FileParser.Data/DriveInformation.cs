@@ -32,7 +32,7 @@ using SQLite;
 
 namespace FileParser.Data {
 
-    [DebuggerDisplay("DriveId = {DriveId} DriveLetter = {DriveLetter} SerialNo = {SerialNo}")]
+    [DebuggerDisplay("DriveId = {DriveId} DriveLetter = {DriveLetter} SerialNo = {SerialNo}  VolumeName = {VolumeName}  TotalSize = {TotalSize}  Model = {Model}")]
     public class DriveInformation {
 
         [AutoIncrement]
@@ -62,10 +62,9 @@ namespace FileParser.Data {
             set;
         }
 
-        //TODO make TotalSize non null and verify it still runs.
         //TODO see if a default value exists in sqlite and add it if it does not.
 
-        public long? TotalSize {
+        public long TotalSize {
             get;
             set;
         }

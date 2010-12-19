@@ -94,7 +94,7 @@ namespace FileParser.Data {
                     }
                     else if (!string.IsNullOrWhiteSpace(volumeName)) {
                         if (hd.VolumeName != volumeName) {
-                            var tempHd = hdCollection.FirstOrDefault(item => item.VolumeName == volumeName && (item.TotalSize == totalSize || item.TotalSize == null));
+                            var tempHd = hdCollection.FirstOrDefault(item => item.VolumeName == volumeName && item.TotalSize == totalSize);
                             if (tempHd == null) {
                                 add = true;
                             }
@@ -110,7 +110,7 @@ namespace FileParser.Data {
                     hd = hdCollection.FirstOrDefault(item => item.SerialNo == volumeSerialNumber);
                 }
                 if (hd == null && !string.IsNullOrWhiteSpace(volumeName)) {
-                    hd = hdCollection.FirstOrDefault(item => item.VolumeName == volumeName && (item.TotalSize == totalSize || item.TotalSize == null));
+                    hd = hdCollection.FirstOrDefault(item => item.VolumeName == volumeName && item.TotalSize == totalSize);
                 }
 
                 if (add && hd != null) {
@@ -167,19 +167,6 @@ namespace FileParser.Data {
                             hd.DriveType = wmi_HD["InterfaceType"].ToString();
                             db.Update(hd);
                         }
-                        //if (hd == null) {
-                        //    hd = new DriveInformation();
-                        //    hd.DriveLetter = dl;
-                        //    hd.Model = wmi_HD["Model"].ToString();
-                        //    hd.DriveType = wmi_HD["InterfaceType"].ToString();
-                        //    hdCollection.Add(hd);
-                        //    db.Insert(hd);
-                        //}
-                        //else {
-                        //    hd.Model = wmi_HD["Model"].ToString();
-                        //    hd.DriveType = wmi_HD["InterfaceType"].ToString();
-                        //    db.Update(hd);
-                        //}
                     }
                 }
             }
@@ -215,8 +202,6 @@ namespace FileParser.Data {
             disk.Get();
 
             var items = new List<PropertyData>(disk.Properties.Cast<PropertyData>());
-
-            //var di = new DriveInfo(drive);
 
             //return the serial number
             return (disk["VolumeSerialNumber"] ?? string.Empty).ToString();
