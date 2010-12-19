@@ -27,5 +27,6 @@ obj/
 [Rr]elease*/
 _ReSharper*/
 [Tt]est[Rr]esult*
-FileDatabase.db3
-FileDatabase.db3-journal
+*.db3-journal
+*.db3
+*.linq
