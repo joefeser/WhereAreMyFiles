@@ -62,6 +62,11 @@ namespace FileParser.Data {
             set;
         }
 
+        public long? TotalSize {
+            get;
+            set;
+        }
+
         public string VolumeName {
             get;
             set;

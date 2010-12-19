@@ -31,7 +31,7 @@ using System.Management;
 using SQLite;
 
 namespace FileParser.Data {
-    
+
     public static class DriveUtilities {
 
         public static List<string> GetFileAttributeList(SQLiteConnection db) {
@@ -59,7 +59,92 @@ namespace FileParser.Data {
 
             var hdCollection = cmd.ExecuteQuery<DriveInformation>();
 
-            var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive");
+            ManagementObjectSearcher searcher = null;
+
+            searcher = new ManagementObjectSearcher("Select * from Win32_LogicalDisk");
+            var moc = searcher.Get();
+
+            foreach (ManagementObject mo in moc) {
+                string driveLetter = mo["DeviceId"].ToString().Substring(0, 1);
+                var volumeName = (mo["VolumeName"] ?? string.Empty).ToString().Trim();
+                var volumeSerialNumber = (mo["VolumeSerialNumber"] ?? string.Empty).ToString().Trim();
+                var driveType = mo["DriveType"].ToString();
+
+                var hd = hdCollection.FirstOrDefault(item => item.DriveLetter == driveLetter);
+
+                //what we want to do is find the item with the same drive letter and determine if it is actually the same.
+
+                bool add = false;
+
+                var driveInfo = new System.IO.DriveInfo(driveLetter + @":\");
+                var totalSize = driveInfo.IsReady ? driveInfo.TotalSize : 0;
+
+                //try to determine if we have the correct record
+                if (hd != null) {
+                    if (!string.IsNullOrWhiteSpace(volumeSerialNumber)) {
+                        if (hd.SerialNo != volumeSerialNumber) {
+                            var tempHd = hdCollection.FirstOrDefault(item => item.SerialNo == volumeSerialNumber);
+                            if (tempHd == null) {
+                                add = true;
+                            }
+                            else {
+                                hd = tempHd;
+                            }
+                        }
+                    }
+                    else if (!string.IsNullOrWhiteSpace(volumeName)) {
+                        if (hd.VolumeName != volumeName) {
+                            var tempHd = hdCollection.FirstOrDefault(item => item.VolumeName == volumeName && (item.TotalSize == totalSize || item.TotalSize == null));
+                            if (tempHd == null) {
+                                add = true;
+                            }
+                            else {
+                                hd = tempHd;
+                            }
+                        }
+                    }
+                }
+
+                //drive letters can change.
+                if (hd == null && !string.IsNullOrWhiteSpace(volumeSerialNumber)) {
+                    hd = hdCollection.FirstOrDefault(item => item.SerialNo == volumeSerialNumber);
+                }
+                if (hd == null && !string.IsNullOrWhiteSpace(volumeName)) {
+                    hd = hdCollection.FirstOrDefault(item => item.VolumeName == volumeName && (item.TotalSize == totalSize || item.TotalSize == null));
+                }
+
+                if (add && hd != null) {
+                    hdCollection.Remove(hd);
+                }
+
+                if (hd == null || add) {
+                    hd = new DriveInformation();
+                    hdCollection.Add(hd);
+                    hd.DriveLetter = driveLetter;
+                    hd.DriveType = driveType;
+                    hd.SerialNo = volumeSerialNumber;
+                    hd.TotalSize = totalSize;
+                    hd.VolumeName = volumeName;
+                    db.Insert(hd);
+                }
+                else {
+                    hd.DriveLetter = driveLetter;
+                    hd.DriveType = driveType;
+                    hd.SerialNo = volumeSerialNumber;
+                    hd.TotalSize = totalSize;
+                    hd.VolumeName = volumeName;
+                    db.Update(hd);
+                }
+                //now we need to remove any drive with the same letter that is not the current one.
+
+                foreach (var item in hdCollection.Where(h => h.DriveLetter.Equals(driveLetter, StringComparison.OrdinalIgnoreCase)).ToList()) {
+                    if (item != hd) {
+                        hdCollection.Remove(item);
+                    }
+                }
+            }
+
+            searcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive");
 
             foreach (ManagementObject wmi_HD in searcher.Get()) {
 
@@ -75,48 +160,27 @@ namespace FileParser.Data {
                         //we want one added for every drive letter on the disk.
                         var dl = driveLetter["DeviceID"].ToString().Substring(0, 1);
                         var hd = hdCollection.FirstOrDefault(drive => drive.DriveLetter == dl);
-                        if (hd == null) {
-                            hd = new DriveInformation();
-                            hd.DriveLetter = dl;
-                            hd.Model = wmi_HD["Model"].ToString();
-                            hd.DriveType = wmi_HD["InterfaceType"].ToString();
-                            hdCollection.Add(hd);
-                            db.Insert(hd);
-                        }
-                        else {
+
+                        //only perform updates
+                        if (hd != null) {
                             hd.Model = wmi_HD["Model"].ToString();
                             hd.DriveType = wmi_HD["InterfaceType"].ToString();
                             db.Update(hd);
                         }
+                        //if (hd == null) {
+                        //    hd = new DriveInformation();
+                        //    hd.DriveLetter = dl;
+                        //    hd.Model = wmi_HD["Model"].ToString();
+                        //    hd.DriveType = wmi_HD["InterfaceType"].ToString();
+                        //    hdCollection.Add(hd);
+                        //    db.Insert(hd);
+                        //}
+                        //else {
+                        //    hd.Model = wmi_HD["Model"].ToString();
+                        //    hd.DriveType = wmi_HD["InterfaceType"].ToString();
+                        //    db.Update(hd);
+                        //}
                     }
-                }
-            }
-
-            searcher = new ManagementObjectSearcher("Select * from Win32_LogicalDisk");
-            var moc = searcher.Get();
-
-            foreach (ManagementObject mo in moc) {
-                string driveLetter = mo["DeviceId"].ToString().Substring(0, 1);
-                var vn = (mo["VolumeName"] ?? string.Empty).ToString().Trim();
-                var vsn = (mo["VolumeSerialNumber"] ?? string.Empty).ToString().Trim();
-                var driveType = mo["DriveType"].ToString();
-
-                var hd = hdCollection.FirstOrDefault(item => item.DriveLetter == driveLetter);
-                if (hd == null) {
-                    hd = new DriveInformation() {
-                        DriveLetter = driveLetter
-                    };
-                    hdCollection.Add(hd);
-                    hd.DriveType = driveType;
-                    hd.SerialNo = vsn;
-                    hd.VolumeName = vn;
-                    db.Insert(hd);
-                }
-                else {
-                    hd.DriveType = driveType;
-                    hd.SerialNo = vsn;
-                    hd.VolumeName = vn;
-                    db.Update(hd);
                 }
             }
 

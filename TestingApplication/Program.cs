@@ -35,8 +35,8 @@ namespace TestingApplication {
         static void Main(string[] args) {
 
             //FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"D:\!Audio");
-            FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"D:\ITunes");
-            //FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"D:\");
+            //FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"D:\ITunes");
+            FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"D:\");
             //FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"D:\!!!!ToCopy");
             Console.WriteLine();
         }

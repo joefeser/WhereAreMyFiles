@@ -89,10 +89,16 @@ namespace FileParser.Data {
                 parentDirectoryInfo = GetDirectoryId(db, drive, directory.Parent);
             }
 
+            var directoryName = directory.Name;
+
+            if (directoryName.IndexOf(":") > -1) {
+                directoryName = directoryName.Substring(3);
+            }
+
             //create a new record
             var newDirectory = new DirectoryInformation() {
                 DriveId = drive.DriveId,
-                Name = directory.Name,
+                Name = directoryName,
                 ParentDirectoryId = parentDirectoryInfo.HasValue ? parentDirectoryInfo : null,
                 Path = directoryPath
             };

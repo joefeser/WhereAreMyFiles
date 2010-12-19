@@ -49,10 +49,14 @@ namespace FileParser.Data {
 
                 List<string> arrHeaders = DriveUtilities.GetFileAttributeList(db);
 
-                var di = new DirectoryInfo(filePath);
+                var directory = new DirectoryInfo(filePath);
 
-                if (di.Exists) {
-                    ProcessFolder(db, hdCollection, arrHeaders, di);
+                var driveLetter = directory.FullName.Substring(0, 1);
+                //TODO line it up with the size or the serial number since we will have removable drives.
+                var drive = hdCollection.FirstOrDefault(letter => letter.DriveLetter.Equals(driveLetter, StringComparison.OrdinalIgnoreCase));
+
+                if (directory.Exists) {
+                    ProcessFolder(db, drive, arrHeaders, directory);
                 }
 
                 //just in case something blew up and it is not committed.
@@ -64,17 +68,12 @@ namespace FileParser.Data {
             }
         }
 
-        private static void ProcessFolder(SQLiteConnection db, List<DriveInformation> hdCollection, List<string> arrHeaders, DirectoryInfo directory) {
+        private static void ProcessFolder(SQLiteConnection db, DriveInformation drive, List<string> arrHeaders, DirectoryInfo directory) {
 
             try {
 
                 if (!directory.Exists)
                     return;
-
-                var driveLetter = directory.FullName.Substring(0, 1);
-
-                //TODO line it up with the size or the serial number since we will have removable drives.
-                var drive = hdCollection.FirstOrDefault(letter => letter.DriveLetter.Equals(driveLetter, StringComparison.OrdinalIgnoreCase));
 
                 if (IgnoreFolder(directory)) {
                     return;
@@ -159,7 +158,7 @@ namespace FileParser.Data {
                 //see if we have any additional folders. If we get access denied it will throw an error
                 try {
                     foreach (var subDirectory in directory.GetDirectories()) {
-                        ProcessFolder(db, hdCollection, arrHeaders, subDirectory);
+                        ProcessFolder(db, drive, arrHeaders, subDirectory);
                     }
                 }
                 catch (Exception ex) {
