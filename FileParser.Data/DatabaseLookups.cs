@@ -70,8 +70,9 @@ namespace FileParser.Data {
 
         }
 
-        public static int GetDirectoryId(SQLiteConnection db, DriveInformation drive, string directoryPath) {
+        public static int GetDirectoryId(SQLiteConnection db, DriveInformation drive, DirectoryInfo directory) {
 
+            var directoryPath = directory.ToDirectoryPath();
             directoryPath = (directoryPath ?? string.Empty).Trim();
 
             var cmd = db.CreateCommand("Select * from " + typeof(DirectoryInformation).Name + " Where DriveId = ? AND Path = ?", drive.DriveId, directoryPath);
@@ -81,27 +82,24 @@ namespace FileParser.Data {
                 return retVal.DirectoryId;
             }
 
-            var actualDirectoryInfo = new DirectoryInfo(Path.Combine(drive.DriveLetter + @":\", directoryPath));
-            var name = actualDirectoryInfo.FullName.Substring(3);
-
             int? parentDirectoryInfo = null;
 
-            if (actualDirectoryInfo.Parent != null) {
-                var parentName = actualDirectoryInfo.Parent.FullName.Substring(3);
-                parentDirectoryInfo = GetDirectoryId(db, drive, parentName);
+            if (directory.Parent != null) {
+                var parentName = directory.Parent.FullName.Substring(3);
+                parentDirectoryInfo = GetDirectoryId(db, drive, directory.Parent);
             }
 
             //create a new record
-            var directory = new DirectoryInformation() {
+            var newDirectory = new DirectoryInformation() {
                 DriveId = drive.DriveId,
-                Name = name,
+                Name = directory.Name,
                 ParentDirectoryId = parentDirectoryInfo.HasValue ? parentDirectoryInfo : null,
                 Path = directoryPath
             };
 
-            db.Insert(directory);
+            db.Insert(newDirectory);
 
-            return directory.DirectoryId;
+            return newDirectory.DirectoryId;
         }
 
     }

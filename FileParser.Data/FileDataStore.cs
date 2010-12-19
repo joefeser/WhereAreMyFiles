@@ -68,32 +68,28 @@ namespace FileParser.Data {
 
             try {
 
-                var di = directory;
-
-                if (!di.Exists)
+                if (!directory.Exists)
                     return;
 
-                var driveLetter = di.FullName.Substring(0, 1);
+                var driveLetter = directory.FullName.Substring(0, 1);
 
                 //TODO line it up with the size or the serial number since we will have removable drives.
                 var drive = hdCollection.FirstOrDefault(letter => letter.DriveLetter.Equals(driveLetter, StringComparison.OrdinalIgnoreCase));
 
-                var directoryPath = di.ToDirectoryPath();
-
-                if (IgnoreFolder(directoryPath)) {
+                if (IgnoreFolder(directory)) {
                     return;
                 }
 
                 //go get the cached items for the folder.
 
-                var directoryId = DatabaseLookups.GetDirectoryId(db, drive, directoryPath);
+                var directoryId = DatabaseLookups.GetDirectoryId(db, drive, directory);
 
                 var cmd = db.CreateCommand("Select * from " + typeof(FileInformation).Name + " Where DriveId = ? AND DirectoryId = ?", drive.DriveId, directoryId);
                 var databaseFiles = cmd.ExecuteQuery<FileInformation>();
 
                 //obtain the file metadata for all of the files in the directory so we can determine if we care about this folder.
 
-                var processList = GetFilesToProcess(databaseFiles, arrHeaders, di);
+                var processList = GetFilesToProcess(databaseFiles, arrHeaders, directory);
 
                 if (processList.Count > 0) {
 
@@ -162,7 +158,7 @@ namespace FileParser.Data {
 
                 //see if we have any additional folders. If we get access denied it will throw an error
                 try {
-                    foreach (var subDirectory in di.GetDirectories()) {
+                    foreach (var subDirectory in directory.GetDirectories()) {
                         ProcessFolder(db, hdCollection, arrHeaders, subDirectory);
                     }
                 }
@@ -181,7 +177,8 @@ namespace FileParser.Data {
 
         private static List<string> _directoryIgnoreList = new List<string>(new string[] { "$RECYCLE.BIN", "System Volume Information" });
 
-        private static bool IgnoreFolder(string folder) {
+        private static bool IgnoreFolder(DirectoryInfo di) {
+            var folder = di.ToDirectoryPath();
             var ignore = _directoryIgnoreList.Any(il => il.Equals(folder, StringComparison.OrdinalIgnoreCase));
             return ignore;
         }
