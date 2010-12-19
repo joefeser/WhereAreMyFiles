@@ -34,6 +34,23 @@ namespace FileParser.Data {
     
     public static class DriveUtilities {
 
+        public static List<string> GetFileAttributeList(SQLiteConnection db) {
+            //TODO determine if we need to use the drive we are on or can we use any folder. Also can this list change?
+            var arrHeaders = new List<string>();
+
+            Shell32.Shell shell = new Shell32.Shell();
+            Shell32.Folder folder = shell.NameSpace(@"C:\");
+
+            for (int i = 0; i < short.MaxValue; i++) {
+                string header = folder.GetDetailsOf(null, i);
+                if (String.IsNullOrEmpty(header))
+                    break;
+                arrHeaders.Add(header);
+                //add the header to the db.
+                var attId = DatabaseLookups.GetAttributeId(db, header);
+            }
+            return arrHeaders;
+        }
 
         public static List<DriveInformation> ProcessDriveList(SQLiteConnection db) {
             db.BeginTransaction();

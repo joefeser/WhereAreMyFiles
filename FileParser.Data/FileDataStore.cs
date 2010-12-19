@@ -47,9 +47,13 @@ namespace FileParser.Data {
 
                 var start = DateTime.Now;
 
-                List<string> arrHeaders = GetFileAttributeList(db);
+                List<string> arrHeaders = DriveUtilities.GetFileAttributeList(db);
 
-                ProcessFolder(db, hdCollection, arrHeaders, filePath);
+                var di = new DirectoryInfo(filePath);
+
+                if (di.Exists) {
+                    ProcessFolder(db, hdCollection, arrHeaders, di);
+                }
 
                 //just in case something blew up and it is not committed.
                 if (db.IsInTransaction) {
@@ -60,121 +64,98 @@ namespace FileParser.Data {
             }
         }
 
-
-        private static void ProcessFolder(SQLiteConnection db, List<DriveInformation> hdCollection, List<string> arrHeaders, string processPath) {
+        private static void ProcessFolder(SQLiteConnection db, List<DriveInformation> hdCollection, List<string> arrHeaders, DirectoryInfo directory) {
 
             try {
 
-                var di = new DirectoryInfo(processPath);
+                var di = directory;
 
                 if (!di.Exists)
                     return;
 
-                //TODO line it up with the size or the serial number since we will have removable drives.
-                var drive = hdCollection.FirstOrDefault(letter => letter.DriveLetter.Equals(processPath.Substring(0, 1), StringComparison.OrdinalIgnoreCase));
+                var driveLetter = di.FullName.Substring(0, 1);
 
-                var sections = di.FullName.Split('\\');
-                var directoryPath = string.Join(@"\", sections.Skip(1));
+                //TODO line it up with the size or the serial number since we will have removable drives.
+                var drive = hdCollection.FirstOrDefault(letter => letter.DriveLetter.Equals(driveLetter, StringComparison.OrdinalIgnoreCase));
+
+                var directoryPath = di.ToDirectoryPath();
 
                 //go get the cached items for the folder.
 
                 var directoryId = DatabaseLookups.GetDirectoryId(db, drive, directoryPath);
 
                 var cmd = db.CreateCommand("Select * from " + typeof(FileInformation).Name + " Where DriveId = ? AND DirectoryId = ?", drive.DriveId, directoryId);
-                var folderItems = cmd.ExecuteQuery<FileInformation>();
+                var databaseFiles = cmd.ExecuteQuery<FileInformation>();
 
-                db.BeginTransaction();
+                //obtain the file metadata for all of the files in the directory so we can determine if we care about this folder.
 
-                Shell32.Shell shell = new Shell32.Shell();
-                Shell32.Folder folder = shell.NameSpace(processPath);
+                var processList = GetFilesToProcess(databaseFiles, arrHeaders, di);
 
-                foreach (Shell32.FolderItem2 item in folder.Items()) {
-                    try {
+                if (processList.Count > 0) {
 
-                        string type = string.Empty;
-                        string path = string.Empty;
+                    db.BeginTransaction();
 
-                        var headerList = new List<FileAttributeInformation>();
+                    Shell32.Shell shell = new Shell32.Shell();
+                    Shell32.Folder folder = shell.NameSpace(directory.FullName);
 
-                        for (int i = 0; i < arrHeaders.Count; i++) {
-                            var header = arrHeaders[i];
-                            var value = folder.GetDetailsOf(item, i);
+                    foreach (var item in processList) {
+                        try {
+                            var fi = item.FileInfo;
+                            var headerList = new List<FileAttributeInformation>();
 
-                            if (!string.IsNullOrWhiteSpace(value)) {
+                            for (int i = 0; i < arrHeaders.Count; i++) {
+                                var header = arrHeaders[i];
+                                var value = folder.GetDetailsOf(item.FolderItem, i);
 
-                                if (header.Equals("Attributes", StringComparison.OrdinalIgnoreCase)) {
-                                    type = value;
+                                if (!string.IsNullOrWhiteSpace(value)) {
+                                    headerList.Add(new FileAttributeInformation() {
+                                        AttributeId = DatabaseLookups.GetAttributeId(db, header),
+                                        Value = value
+                                    });
                                 }
-                                if (header.Equals("Path", StringComparison.OrdinalIgnoreCase)) {
-                                    path = value;
-                                }
-
-                                headerList.Add(new FileAttributeInformation() {
-                                    AttributeId = DatabaseLookups.GetAttributeId(db, header),
-                                    Value = value
-                                });
                             }
-                        }
 
-                        if (!string.IsNullOrWhiteSpace(path)) {
-                            var fi = new FileInfo(path);
+                            //this should have been already checked but we want to be safe.
                             if (fi.Exists) {
-                                FileInformation fileInfo = folderItems.FirstOrDefault(info => info.FileName.Equals(fi.Name, StringComparison.OrdinalIgnoreCase));
 
-                                bool isNew = false;
+                                var fileInfo = databaseFiles.FirstOrDefault(info => info.FileName.Equals(fi.Name, StringComparison.OrdinalIgnoreCase));
 
                                 if (fileInfo == null) {
                                     fileInfo = new FileInformation() {
-                                        CreatedDate = fi.CreationTimeUtc,
                                         DriveId = drive.DriveId,
                                         DirectoryId = directoryId,
-                                        FileName = fi.Name,
-                                        Hash = fi.Length < 2000000000 ? HelperMethods.ComputeShaHash(path) : "NONE",
-                                        LastWriteDate = fi.LastWriteTimeUtc,
-                                        Length = fi.Length
+                                        FileName = fi.Name
                                     };
-
+                                    SetFileInformation(fi, fileInfo);
                                     db.Insert(fileInfo);
-                                    headerList.ForEach(hl => hl.FileId = fileInfo.FileId);
-                                    db.InsertAll(headerList);
-                                    isNew = true;
-                                    Console.WriteLine("Inserted:" + path);
+                                    Console.WriteLine("Inserted:" + fi.FullName);
+                                }
+                                else {
+                                    SetFileInformation(fi, fileInfo);
+                                    db.Update(fileInfo);
+
+                                    var deleteCount = db.Execute("Delete from " + typeof(FileAttributeInformation).Name + " WHERE FileId = ?", fileInfo.FileId);
+                                    Console.WriteLine("Changed:" + fi.FullName);
                                 }
 
-                                if (!isNew) {
-                                    if (fi.Length != fileInfo.Length
-                                        || fi.CreationTimeUtc.NoMilliseconds() != fileInfo.CreatedDate
-                                        || fi.LastWriteTimeUtc.NoMilliseconds() != fileInfo.LastWriteDate) {
-
-                                        fileInfo.CreatedDate = fi.CreationTimeUtc;
-                                        fileInfo.Hash = fi.Length < 2000000000 ? HelperMethods.ComputeShaHash(path) : "NONE";
-                                        fileInfo.LastWriteDate = fi.LastWriteTimeUtc;
-                                        fileInfo.Length = fi.Length;
-                                        db.Update(fileInfo);
-
-                                        var deleteCount = db.Execute("Delete from " + typeof(FileAttributeInformation).Name + " WHERE FileId = ?", fileInfo.FileId);
-
-                                        headerList.ForEach(hl => hl.FileId = fileInfo.FileId);
-                                        db.InsertAll(headerList);
-
-                                        Console.WriteLine("Changed:" + path);
-                                    }
-                                }
+                                //save the headers
+                                headerList.ForEach(hl => hl.FileId = fileInfo.FileId);
+                                db.InsertAll(headerList);
                             }
                         }
+                        catch (Exception ex) {
+                            Console.WriteLine(ex.ToString());
+                        }
                     }
-                    catch (Exception ex) {
-                        Console.WriteLine(ex.ToString());
-                        //throw;
-                    }
-                }
 
-                db.Commit();
+                    db.Commit();
+
+                }
 
                 //see if we have any additional folders. If we get access denied it will throw an error
                 try {
-                    foreach (var directory in di.GetDirectories()) {
-                        ProcessFolder(db, hdCollection, arrHeaders, directory.FullName);
+                    foreach (var subDirectory in di.GetDirectories()) {
+                        ProcessFolder(db, hdCollection, arrHeaders, subDirectory);
                     }
                 }
                 catch (Exception ex) {
@@ -187,22 +168,76 @@ namespace FileParser.Data {
 
         }
 
-        private static List<string> GetFileAttributeList(SQLiteConnection db) {
-            //TODO determine if we need to use the drive we are on or can we use any folder. Also can this list change?
-            var arrHeaders = new List<string>();
+        private static void SetFileInformation(FileInfo fi, FileInformation fileInfo) {
+            fileInfo.CreatedDate = fi.CreationTimeUtc;
+            fileInfo.Hash = fi.Length < 2000000000 ? HelperMethods.ComputeShaHash(fi.FullName) : "NONE";
+            fileInfo.LastWriteDate = fi.LastWriteTimeUtc;
+            fileInfo.Length = fi.Length;
+        }
 
-            Shell32.Shell shell = new Shell32.Shell();
-            Shell32.Folder folder = shell.NameSpace(@"C:\");
+        private static List<FileAndFolder> GetFilesToProcess(List<FileInformation> databaseFiles, List<string> arrHeaders, DirectoryInfo di) {
 
-            for (int i = 0; i < short.MaxValue; i++) {
-                string header = folder.GetDetailsOf(null, i);
-                if (String.IsNullOrEmpty(header))
-                    break;
-                arrHeaders.Add(header);
-                //add the header to the db.
-                var attId = DatabaseLookups.GetAttributeId(db, header);
+            var filesToProcess = new List<FileInfo>();
+
+            if (di.Exists) {
+
+                foreach (var fi in di.GetFiles()) {
+                    var fileInfo = databaseFiles.FirstOrDefault(info => info.FileName.Equals(fi.Name, StringComparison.OrdinalIgnoreCase));
+
+                    if (fileInfo == null) {
+                        filesToProcess.Add(fi);
+                    }
+                    else if (fi.Length != fileInfo.Length
+                                        || fi.CreationTimeUtc.NoMilliseconds() != fileInfo.CreatedDate
+                                        || fi.LastWriteTimeUtc.NoMilliseconds() != fileInfo.LastWriteDate) {
+                        filesToProcess.Add(fi);
+                    }
+                }
             }
-            return arrHeaders;
+
+            var retVal = new List<FileAndFolder>();
+
+            if (filesToProcess.Count > 0) {
+
+                var headerName = "Name";
+                var nameIndex = arrHeaders.IndexOf(headerName);
+
+                //reduce the folderinfo2 into a list we can process.
+
+                Shell32.Shell shell = new Shell32.Shell();
+                Shell32.Folder folder = shell.NameSpace(di.FullName);
+
+                //thanks to this post http://geraldgibson.net/dnn/Home/CZipFileCompression/tabid/148/Default.aspx
+                var nonfiltered = (Shell32.FolderItems3)folder.Items();
+                int SHCONTF_INCLUDEHIDDEN = 128;
+                int SHCONTF_NONFOLDERS = 64;
+                nonfiltered.Filter(SHCONTF_INCLUDEHIDDEN | SHCONTF_NONFOLDERS, "*");
+
+                foreach (Shell32.FolderItem2 item in nonfiltered) {
+                    var value = folder.GetDetailsOf(item, nameIndex);
+                    //see if we should process this item.
+                    var processItem = filesToProcess.FirstOrDefault(fa => fa.Name.Equals(value, StringComparison.OrdinalIgnoreCase));
+                    if (processItem != null) {
+                        retVal.Add(new FileAndFolder() {
+                            FileInfo = processItem,
+                            FolderItem = item
+                        });
+                    }
+                }
+            }
+            return retVal;
+        }
+
+        private class FileAndFolder {
+            public FileInfo FileInfo {
+                get;
+                set;
+            }
+
+            public Shell32.FolderItem2 FolderItem {
+                get;
+                set;
+            }
         }
 
     }
