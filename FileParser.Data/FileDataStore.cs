@@ -80,6 +80,10 @@ namespace FileParser.Data {
 
                 var directoryPath = di.ToDirectoryPath();
 
+                if (IgnoreFolder(directoryPath)) {
+                    return;
+                }
+
                 //go get the cached items for the folder.
 
                 var directoryId = DatabaseLookups.GetDirectoryId(db, drive, directoryPath);
@@ -167,7 +171,7 @@ namespace FileParser.Data {
                 }
             }
             catch (UnauthorizedAccessException) {
-            
+
             }
             catch (Exception ex) {
                 Console.WriteLine(ex.ToString());
@@ -175,12 +179,19 @@ namespace FileParser.Data {
 
         }
 
-        private static bool IgnoreHeader(string header) {
-            var ignoreList = new List<string>(new string[] { "Name", "Size", "Date modified", 
+        private static List<string> _directoryIgnoreList = new List<string>(new string[] { "$RECYCLE.BIN", "System Volume Information" });
+
+        private static bool IgnoreFolder(string folder) {
+            var ignore = _directoryIgnoreList.Any(il => il.Equals(folder, StringComparison.OrdinalIgnoreCase));
+            return ignore;
+        }
+
+        private static List<string> _ignoreHeaderList = new List<string>(new string[] { "Name", "Size", "Date modified", 
                                     "Date created", "Date accessed", "Filename", 
                                     "Folder name", "Folder path", "Folder", "Path" });
 
-            var ignore = ignoreList.Any(il => il.Equals(header, StringComparison.OrdinalIgnoreCase));
+        private static bool IgnoreHeader(string header) {
+            var ignore = _ignoreHeaderList.Any(il => il.Equals(header, StringComparison.OrdinalIgnoreCase));
             return ignore;
         }
 
