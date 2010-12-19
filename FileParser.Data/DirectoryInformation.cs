@@ -47,6 +47,7 @@ namespace FileParser.Data {
             set;
         }
 
+        //[Indexed()]
         public int DriveId {
             get;
             set;
@@ -57,6 +58,7 @@ namespace FileParser.Data {
             set;
         }
 
+        //[Indexed()]
         public string Path {
             get;
             set;

@@ -43,6 +43,9 @@ namespace FileParser.Data {
             db.CreateTable<FileAttributeInformation>();
             db.CreateTable<FileAttribute>();
 
+            db.Execute("CREATE INDEX if not exists \"main\".\"ix_DirectoryInformation_driveid_path\" ON \"DirectoryInformation\" (\"DriveId\" ASC, \"Path\" ASC)");
+            db.Execute("CREATE INDEX if not exists \"main\".\"ix_FileInformation_driveid_directoryid\" ON \"FileInformation\" (\"DirectoryId\" ASC, \"DriveId\" ASC)");
+
             db.Commit();
         }
 

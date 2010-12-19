@@ -104,7 +104,7 @@ namespace FileParser.Data {
                             var headerList = new List<FileAttributeInformation>();
 
                             for (int i = 0; i < arrHeaders.Count; i++) {
-                                
+
                                 var header = arrHeaders[i];
 
                                 if (!IgnoreHeader(header)) {
@@ -165,6 +165,9 @@ namespace FileParser.Data {
                 catch (Exception ex) {
                     Console.WriteLine(ex.ToString());
                 }
+            }
+            catch (UnauthorizedAccessException) {
+            
             }
             catch (Exception ex) {
                 Console.WriteLine(ex.ToString());
