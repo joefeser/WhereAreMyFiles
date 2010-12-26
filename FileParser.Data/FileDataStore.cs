@@ -182,9 +182,18 @@ namespace FileParser.Data {
             return ignore;
         }
 
-        private static List<string> _ignoreHeaderList = new List<string>(new string[] { "Name", "Size", "Date modified", 
-                                    "Date created", "Date accessed", "Filename", 
-                                    "Folder name", "Folder path", "Folder", "Path" });
+        private static List<string> _ignoreHeaderList = new List<string>(new string[] { "Computer",
+                                                                                        "Date accessed", 
+                                                                                        "Date created", 
+                                                                                        "Date modified", 
+                                                                                        "Filename", 
+                                                                                        "Folder name",
+                                                                                        "Folder path",
+                                                                                        "Folder",
+                                                                                        "Name", 
+                                                                                        "Owner",
+                                                                                        "Path",
+                                                                                        "Size" });
 
         private static bool IgnoreHeader(string header) {
             var ignore = _ignoreHeaderList.Any(il => il.Equals(header, StringComparison.OrdinalIgnoreCase));
