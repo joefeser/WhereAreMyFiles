@@ -21,59 +21,20 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
- */
+*/
 
+using MongoDB.Bson.Serialization.Attributes;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Diagnostics;
-using SQLite;
 
 namespace FileParser.Data {
 
-    [DebuggerDisplay("DriveId = {DriveId} DriveLetter = {DriveLetter} SerialNo = {SerialNo}  VolumeName = {VolumeName}  TotalSize = {TotalSize}  Model = {Model}")]
-    public class DriveInformation {
+    [DebuggerDisplay("AttributeId = {AttributeId} Name = {Name}")]
+    public class FileAttribute {
 
-        [AutoIncrement]
-        [PrimaryKey]
-        public int DriveId {
-            get;
-            set;
-        }
+        [BsonId]
+        public Guid AttributeId { get; set; } = Guid.NewGuid();
 
-        public string DriveType {
-            get;
-            set;
-        }
-
-        public string DriveLetter {
-            get;
-            set;
-        }
-
-        public string Model {
-            get;
-            set;
-        }
-
-        public string SerialNo {
-            get;
-            set;
-        }
-
-        //TODO see if a default value exists in sqlite and add it if it does not.
-
-        public long TotalSize {
-            get;
-            set;
-        }
-
-        public string VolumeName {
-            get;
-            set;
-        }
-
+        public string Name { get; set; }
     }
-
 }

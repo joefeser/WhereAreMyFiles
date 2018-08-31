@@ -21,61 +21,31 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-*/
+ */
 
+using MongoDB.Bson.Serialization.Attributes;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Diagnostics;
-using SQLite;
 
 namespace FileParser.Data {
 
-    [DebuggerDisplay("FileId = {FileId} CreatedDate = {CreatedDate} FileName = {FileName} Hash = {Hash} Length = {Length}")]
-    public class FileInformation {
+    [DebuggerDisplay("DriveId = {DriveId} DriveLetter = {DriveLetter} SerialNo = {SerialNo}  VolumeName = {VolumeName}  TotalSize = {TotalSize}  Model = {Model}")]
+    public class DriveInformation {
 
-        [AutoIncrement]
-        [PrimaryKey]
-        public int FileId {
-            get;
-            set;
-        }
+        [BsonId]
+        public Guid DriveId { get; set; } = Guid.NewGuid();
 
-        public DateTime CreatedDate {
-            get;
-            set;
-        }
+        public string DriveType { get; set; }
 
-        public int DirectoryId {
-            get;
-            set;
-        }
+        public string DriveLetter { get; set; }
 
-        public int DriveId {
-            get;
-            set;
-        }
+        public string Model { get; set; }
 
-        public string FileName {
-            get;
-            set;
-        }
+        public string SerialNo { get; set; }
 
-        public string Hash {
-            get;
-            set;
-        }
+        public long TotalSize { get; set; }
 
-        public DateTime LastWriteDate {
-            get;
-            set;
-        }
-
-        public long Length {
-            get;
-            set;
-        }
+        public string VolumeName { get; set; }
 
     }
 

@@ -26,45 +26,68 @@ THE SOFTWARE.
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using SQLite;
 using System.IO;
+using MongoDB.Driver;
+using System.Threading.Tasks;
 
 namespace FileParser.Data {
 
     public static class DatabaseLookups {
 
-        public static void CreateTables(SQLiteConnection db) {
-            db.BeginTransaction();
+        private static IMongoClient client = new MongoClient();
+        private static IMongoDatabase database;
 
-            db.CreateTable<DriveInformation>();
-            db.CreateTable<DirectoryInformation>();
-            db.CreateTable<FileInformation>();
-            db.CreateTable<FileAttributeInformation>();
-            db.CreateTable<FileAttribute>();
+        private static readonly string DriveInformation = typeof(DriveInformation).Name.ToLower();
+        private static readonly string DirectoryInformation = typeof(DirectoryInformation).Name.ToLower();
+        private static readonly string FileInformation = typeof(FileInformation).Name.ToLower();
+        private static readonly string FileAttributeInformation = typeof(FileAttributeInformation).Name.ToLower();
+        private static readonly string FileAttribute = typeof(FileAttribute).Name.ToLower();
 
-            db.Execute("CREATE INDEX if not exists \"main\".\"ix_DirectoryInformation_driveid_path\" ON \"DirectoryInformation\" (\"DriveId\" ASC, \"Path\" ASC)");
-            db.Execute("CREATE INDEX if not exists \"main\".\"ix_FileInformation_driveid_directoryid\" ON \"FileInformation\" (\"DirectoryId\" ASC, \"DriveId\" ASC)");
+        private static IMongoCollection<DriveInformation> DriveInformationCollection;
+        private static IMongoCollection<DirectoryInformation> DirectoryInformationCollection;
+        private static IMongoCollection<FileInformation> FileInformationCollection;
+        private static IMongoCollection<FileAttributeInformation> FileAttributeInformationCollection;
+        private static IMongoCollection<FileAttribute> FileAttributeCollection;
 
-            db.Commit();
+        public static async Task CreateTables() {
+
+            database = client.GetDatabase("files");
+            database.CreateCollection(DriveInformation);
+            database.CreateCollection(DirectoryInformation);
+            database.CreateCollection(FileInformation);
+            database.CreateCollection(FileAttributeInformation);
+            database.CreateCollection(FileAttribute);
+
+            DriveInformationCollection = database.GetCollection<DriveInformation>(FileAttribute);
+            DirectoryInformationCollection = database.GetCollection<DirectoryInformation>(FileAttribute);
+            FileInformationCollection = database.GetCollection<FileInformation>(FileAttribute);
+            FileAttributeInformationCollection = database.GetCollection<FileAttributeInformation>(FileAttribute);
+            FileAttributeCollection = database.GetCollection<FileAttribute>(FileAttribute);
+
+            await DirectoryInformationCollection.Indexes.CreateOneAsync(new CreateIndexModel<DirectoryInformation>(Builders<DirectoryInformation>
+                .IndexKeys.Ascending((item) => item.DriveId)
+                .Ascending((item) => item.Path)));
+
+            await FileInformationCollection.Indexes.CreateOneAsync(new CreateIndexModel<FileInformation>(Builders<FileInformation>
+                .IndexKeys.Ascending((item) => item.DirectoryId)
+                .Ascending((item) => item.DriveId)));
         }
 
-        private static List<FileAttribute> _fileAttributes = null;
+        private static List<FileAttribute> fileAttributes = new List<FileAttribute>();
 
-        public static int GetAttributeId(SQLiteConnection db, string name) {
+        public async static Task<Guid> GetAttributeId(string name) {
 
-            if (_fileAttributes == null) {
-                _fileAttributes = new List<FileAttribute>();
-                _fileAttributes.AddRange(db.Table<FileAttribute>());
+            if (fileAttributes == null) {
+                fileAttributes.AddRange((await FileAttributeCollection.FindAsync(Builders<FileAttribute>.Filter.Empty)).ToEnumerable());
             }
 
-            var fi = _fileAttributes.FirstOrDefault(item => item.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            var fi = fileAttributes.FirstOrDefault(item => item.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
             if (fi == null) {
                 fi = new FileAttribute() {
                     Name = name
                 };
-                db.Insert(fi);
-                _fileAttributes.Add(fi);
+                await FileAttributeCollection.ReplaceOneAsync(Builders<FileAttribute>.Filter.Eq(item => item.Name, fi.Name), fi);
+                fileAttributes.Add(fi);
             }
             return fi.AttributeId;
 

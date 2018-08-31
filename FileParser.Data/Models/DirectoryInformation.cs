@@ -23,46 +23,25 @@ THE SOFTWARE.
 
 */
 
+using MongoDB.Bson.Serialization.Attributes;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Diagnostics;
-using SQLite;
 
 namespace FileParser.Data {
 
     [DebuggerDisplay("DirectoryId = {DirectoryId} ParentDirectoryId = {ParentDirectoryId} Name = {Name} Path = {Path} DriveId = {DriveId}")]
     public class DirectoryInformation {
 
-        [AutoIncrement]
-        [PrimaryKey]
-        public int DirectoryId {
-            get;
-            set;
-        }
+        [BsonId]
+        public Guid DirectoryId { get; set; } = Guid.NewGuid();
 
-        public int? ParentDirectoryId {
-            get;
-            set;
-        }
+        public int? ParentDirectoryId { get; set; }
 
-        //[Indexed()]
-        public int DriveId {
-            get;
-            set;
-        }
+        public int DriveId { get; set; }
 
-        public string Name {
-            get;
-            set;
-        }
+        public string Name { get; set; }
 
-        //[Indexed()]
-        public string Path {
-            get;
-            set;
-        }
+        public string Path { get; set; }
     }
 
 }

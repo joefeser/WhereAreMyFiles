@@ -23,28 +23,32 @@ THE SOFTWARE.
 
 */
 
+using MongoDB.Bson.Serialization.Attributes;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using SQLite;
 using System.Diagnostics;
 
 namespace FileParser.Data {
 
-    [DebuggerDisplay("AttributeId = {AttributeId} Name = {Name}")]
-    public class FileAttribute {
+    [DebuggerDisplay("FileId = {FileId} CreatedDate = {CreatedDate} FileName = {FileName} Hash = {Hash} Length = {Length}")]
+    public class FileInformation {
 
-        [AutoIncrement]
-        [PrimaryKey]
-        public int AttributeId {
-            get;
-            set;
-        }
+        [BsonId]
+        public Guid FileId { get; set; } = Guid.NewGuid();
 
-        public string Name {
-            get;
-            set;
-        }
+        public DateTime CreatedDate { get; set; }
+
+        public int DirectoryId { get; set; }
+
+        public int DriveId { get; set; }
+
+        public string FileName { get; set; }
+
+        public string Hash { get; set; }
+
+        public DateTime LastWriteDate { get; set; }
+
+        public long Length { get; set; }
+
     }
+
 }
