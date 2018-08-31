@@ -27,10 +27,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+using System.Security.Cryptography;
 
 namespace FileParser.Data {
     
     public static class HelperMethods {
+        private static SHA1 hasher = SHA1Managed.Create();
 
         public static string ComputeShaHash(string path) {
             if (!File.Exists(path)) {
@@ -42,7 +44,6 @@ namespace FileParser.Data {
         }
 
         public static string ComputeShaHash(Stream stream) {
-            var hasher = System.Security.Cryptography.SHA1Managed.Create();
             var hash = hasher.ComputeHash(stream);
 
             return ToHexString(hash);

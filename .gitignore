@@ -31,3 +31,4 @@ _ReSharper*/
 *.db3
 *.linq
 *.7z
+.vs/*
