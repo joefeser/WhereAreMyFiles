@@ -37,8 +37,10 @@ namespace FileParser.Data {
         [BsonRepresentation(BsonType.String)]
         public Guid Id { get; set; } = Guid.NewGuid();
 
+        [BsonRepresentation(BsonType.String)]
         public Guid? ParentDirectoryId { get; set; }
 
+        [BsonRepresentation(BsonType.String)]
         public Guid DriveId { get; set; }
 
         public string Name { get; set; }

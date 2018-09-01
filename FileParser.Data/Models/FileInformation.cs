@@ -39,8 +39,10 @@ namespace FileParser.Data {
 
         public DateTime CreatedDate { get; set; }
 
+        [BsonRepresentation(BsonType.String)]
         public Guid DirectoryId { get; set; }
 
+        [BsonRepresentation(BsonType.String)]
         public Guid DriveId { get; set; }
 
         public string FileName { get; set; }

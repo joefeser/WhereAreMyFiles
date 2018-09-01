@@ -39,6 +39,7 @@ namespace FileParser.Data {
 
         public string Attribute { get; set; }
 
+        [BsonRepresentation(BsonType.String)]
         public Guid FileId { get; set; }
 
         public string Value { get; set; }
