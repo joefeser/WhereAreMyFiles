@@ -30,7 +30,7 @@ using System.Diagnostics;
 
 namespace FileParser.Data {
 
-    [DebuggerDisplay("DirectoryId = {DirectoryId} ParentDirectoryId = {ParentDirectoryId} Name = {Name} Path = {Path} DriveId = {DriveId}")]
+    [DebuggerDisplay("DirectoryId = {Id} ParentDirectoryId = {ParentDirectoryId} Name = {Name} Path = {Path} DriveId = {DriveId}")]
     public class DirectoryInformation {
 
         [BsonId]

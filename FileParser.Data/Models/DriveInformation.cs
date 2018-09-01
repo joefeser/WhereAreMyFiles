@@ -30,7 +30,7 @@ using System.Diagnostics;
 
 namespace FileParser.Data {
 
-    [DebuggerDisplay("DriveId = {DriveId} DriveLetter = {DriveLetter} SerialNo = {SerialNo}  VolumeName = {VolumeName}  TotalSize = {TotalSize}  Model = {Model}")]
+    [DebuggerDisplay("DriveId = {Id} DriveLetter = {DriveLetter} SerialNo = {SerialNo}  VolumeName = {VolumeName}  TotalSize = {TotalSize}  Model = {Model}")]
     public class DriveInformation {
 
         [BsonId]

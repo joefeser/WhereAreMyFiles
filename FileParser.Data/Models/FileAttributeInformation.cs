@@ -30,7 +30,7 @@ using System.Diagnostics;
 
 namespace FileParser.Data {
 
-    [DebuggerDisplay("AttributeId = {AttributeId} Value = {Value}")]
+    [DebuggerDisplay("AttributeId = {Id} Value = {Value}")]
     public class FileAttributeInformation {
 
         [BsonId]
