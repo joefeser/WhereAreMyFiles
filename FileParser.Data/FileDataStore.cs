@@ -191,20 +191,21 @@ namespace FileParser.Data {
 
         private static List<FileAndFolder> GetFilesToProcess(List<FileInformation> databaseFiles, List<string> arrHeaders, DirectoryInfo di) {
 
-            var filesToProcess = new List<FileInfo>();
+            var databaseDictionary = databaseFiles.ToDictionary(item => item.FileName, StringComparer.OrdinalIgnoreCase);
+            var filesToProcess = new Dictionary<string, FileInfo>(StringComparer.OrdinalIgnoreCase);
+            var allFiles = new Dictionary<string, FileInfo>(StringComparer.OrdinalIgnoreCase);
 
             if (di.Exists) {
-
                 foreach (var fi in di.GetFiles()) {
-                    var fileInfo = databaseFiles.FirstOrDefault(info => info.FileName.Equals(fi.Name, StringComparison.OrdinalIgnoreCase));
-
+                    databaseDictionary.TryGetValue(fi.Name, out FileInformation fileInfo);
+                    allFiles[fi.Name] = fi;
                     if (fileInfo == null) {
-                        filesToProcess.Add(fi);
+                        filesToProcess[fi.Name] = fi;
                     }
                     else if (fi.Length != fileInfo.Length
-                                        || fi.CreationTimeUtc.NoMilliseconds() != fileInfo.CreatedDate
-                                        || fi.LastWriteTimeUtc.NoMilliseconds() != fileInfo.LastWriteDate) {
-                        filesToProcess.Add(fi);
+                                        || fi.CreationTimeUtc.NoMilliseconds() != fileInfo.CreatedDate.NoMilliseconds()
+                                        || fi.LastWriteTimeUtc.NoMilliseconds() != fileInfo.LastWriteDate.NoMilliseconds()) {
+                        filesToProcess[fi.Name] = fi;
                     }
                 }
             }
@@ -212,7 +213,6 @@ namespace FileParser.Data {
             var retVal = new List<FileAndFolder>();
 
             if (filesToProcess.Count > 0) {
-
                 var headerName = "Name";
                 var nameIndex = arrHeaders.IndexOf(headerName);
 
@@ -229,17 +229,65 @@ namespace FileParser.Data {
                 foreach (Shell32.FolderItem2 item in nonfiltered) {
                     var value = folder.GetDetailsOf(item, nameIndex);
                     //see if we should process this item.
-                    var processItem = filesToProcess.FirstOrDefault(fa => fa.Name.Equals(value, StringComparison.OrdinalIgnoreCase));
+                    filesToProcess.TryGetValue(value, out FileInfo processItem);
                     if (processItem != null) {
                         retVal.Add(new FileAndFolder() {
                             FileInfo = processItem,
                             FolderItem = item
                         });
                     }
+                    else {
+                        allFiles.TryGetValue(value, out FileInfo pi);
+                        if (pi == null && !IsShortcut(folder, value)) {
+                            //see if this file exists somewhere.
+                            Console.WriteLine($"Why are we not able to find the file? {value}");
+                        }
+                    }
                 }
             }
             return retVal;
         }
+
+        //https://code.msdn.microsoft.com/windowsdesktop/Identifying-and-Resolving-ca0dfce8
+
+        private static bool IsShortcut(Shell32.Folder folder, string fileName) {
+            object folderItem = new object();
+            folderItem = folder.ParseName(fileName);
+
+            if (folderItem != null) {
+                return ((Shell32.FolderItem)folderItem).IsLink;
+            }
+
+            return false;
+        }
+
+        //private bool IsShortcut(string path) {
+        //    string directory = Path.GetDirectoryName(path);
+        //    string file = Path.GetFileName(path);
+
+        //    Shell32.Shell shell = new Shell32.Shell();
+        //    Shell32.Folder folder = shell.NameSpace(directory);
+        //    Shell32.FolderItem folderItem = folder.ParseName(file);
+
+        //    if (folderItem != null) {
+        //        return folderItem.IsLink;
+        //    }
+
+        //    return false;
+        //}
+
+        //private string ResolveShortcut(string path) {
+        //    string directory = Path.GetDirectoryName(path);
+        //    string file = Path.GetFileName(path);
+
+        //    Shell32.Shell shell = new Shell32.Shell();
+        //    Shell32.Folder folder = shell.NameSpace(directory);
+        //    Shell32.FolderItem folderItem = folder.ParseName(file);
+
+        //    Shell32.ShellLinkObject link = (Shell32.ShellLinkObject)folderItem.GetLink;
+
+        //    return link.Path;
+        //}
 
         private class FileAndFolder {
             public FileInfo FileInfo {

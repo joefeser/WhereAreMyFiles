@@ -30,7 +30,7 @@ using System.Text;
 using System.IO;
 
 namespace FileParser.Data {
-    
+
     public static class ExtensionMethods {
 
         public static string ToDirectoryPath(this DirectoryInfo di) {
@@ -38,7 +38,7 @@ namespace FileParser.Data {
             var directoryPath = string.Join(@"\", sections.Skip(1));
             return directoryPath;
         }
-    
+
         public static DateTime NoMilliseconds(this DateTime item) {
             return new DateTime(item.Year, item.Month, item.Day, item.Hour, item.Minute, item.Second);
         }
