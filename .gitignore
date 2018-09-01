@@ -32,3 +32,4 @@ _ReSharper*/
 *.linq
 *.7z
 .vs/*
+packages/*

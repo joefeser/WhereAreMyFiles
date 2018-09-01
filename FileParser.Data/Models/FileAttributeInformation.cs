@@ -23,39 +23,25 @@ THE SOFTWARE.
 
 */
 
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Diagnostics;
-using SQLite;
 
 namespace FileParser.Data {
 
     [DebuggerDisplay("AttributeId = {AttributeId} Value = {Value}")]
     public class FileAttributeInformation {
 
-        [AutoIncrement]
-        [PrimaryKey]
-        public int FileAttributeId {
-            get;
-            set;
-        }
+        [BsonId]
+        [BsonRepresentation(BsonType.String)]
+        public Guid Id { get; set; }
 
-        public int AttributeId {
-            get;
-            set;
-        }
+        public string Attribute { get; set; }
 
-        public int FileId {
-            get;
-            set;
-        }
+        public Guid FileId { get; set; }
 
-        public string Value {
-            get;
-            set;
-        }
+        public string Value { get; set; }
 
     }
 

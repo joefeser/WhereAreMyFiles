@@ -23,6 +23,7 @@ THE SOFTWARE.
 
 */
 
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System;
 using System.Diagnostics;
@@ -33,11 +34,12 @@ namespace FileParser.Data {
     public class DirectoryInformation {
 
         [BsonId]
-        public Guid DirectoryId { get; set; } = Guid.NewGuid();
+        [BsonRepresentation(BsonType.String)]
+        public Guid Id { get; set; } = Guid.NewGuid();
 
-        public int? ParentDirectoryId { get; set; }
+        public Guid? ParentDirectoryId { get; set; }
 
-        public int DriveId { get; set; }
+        public Guid DriveId { get; set; }
 
         public string Name { get; set; }
 

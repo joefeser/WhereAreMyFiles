@@ -41,29 +41,37 @@ namespace FileParser.Data {
         private static readonly string DirectoryInformation = typeof(DirectoryInformation).Name.ToLower();
         private static readonly string FileInformation = typeof(FileInformation).Name.ToLower();
         private static readonly string FileAttributeInformation = typeof(FileAttributeInformation).Name.ToLower();
-        private static readonly string FileAttribute = typeof(FileAttribute).Name.ToLower();
 
-        private static IMongoCollection<DriveInformation> DriveInformationCollection;
-        private static IMongoCollection<DirectoryInformation> DirectoryInformationCollection;
-        private static IMongoCollection<FileInformation> FileInformationCollection;
-        private static IMongoCollection<FileAttributeInformation> FileAttributeInformationCollection;
-        private static IMongoCollection<FileAttribute> FileAttributeCollection;
+        public static IMongoCollection<DriveInformation> DriveInformationCollection;
+        public static IMongoCollection<DirectoryInformation> DirectoryInformationCollection;
+        public static IMongoCollection<FileInformation> FileInformationCollection;
+        public static IMongoCollection<FileAttributeInformation> FileAttributeInformationCollection;
+
+        static DatabaseLookups() {
+            database = client.GetDatabase("files");
+
+            var actions = new List<Action>() {
+                () => database.CreateCollection(DriveInformation),
+                () => database.CreateCollection(DirectoryInformation),
+                () => database.CreateCollection(FileInformation),
+                () => database.CreateCollection(FileAttributeInformation)
+            };
+
+            foreach (var action in actions) {
+                try {
+                    action();
+                }
+                catch (Exception ex) {
+                    Console.WriteLine(ex.Message);
+                }
+            }
+            DriveInformationCollection = database.GetCollection<DriveInformation>(DriveInformation);
+            DirectoryInformationCollection = database.GetCollection<DirectoryInformation>(DirectoryInformation);
+            FileInformationCollection = database.GetCollection<FileInformation>(FileInformation);
+            FileAttributeInformationCollection = database.GetCollection<FileAttributeInformation>(FileAttributeInformation);
+        }
 
         public static async Task CreateTables() {
-
-            database = client.GetDatabase("files");
-            database.CreateCollection(DriveInformation);
-            database.CreateCollection(DirectoryInformation);
-            database.CreateCollection(FileInformation);
-            database.CreateCollection(FileAttributeInformation);
-            database.CreateCollection(FileAttribute);
-
-            DriveInformationCollection = database.GetCollection<DriveInformation>(FileAttribute);
-            DirectoryInformationCollection = database.GetCollection<DirectoryInformation>(FileAttribute);
-            FileInformationCollection = database.GetCollection<FileInformation>(FileAttribute);
-            FileAttributeInformationCollection = database.GetCollection<FileAttributeInformation>(FileAttribute);
-            FileAttributeCollection = database.GetCollection<FileAttribute>(FileAttribute);
-
             await DirectoryInformationCollection.Indexes.CreateOneAsync(new CreateIndexModel<DirectoryInformation>(Builders<DirectoryInformation>
                 .IndexKeys.Ascending((item) => item.DriveId)
                 .Ascending((item) => item.Path)));
@@ -73,43 +81,23 @@ namespace FileParser.Data {
                 .Ascending((item) => item.DriveId)));
         }
 
-        private static List<FileAttribute> fileAttributes = new List<FileAttribute>();
+        public static async Task<Guid> GetDirectoryId(DriveInformation drive, DirectoryInfo directory) {
 
-        public async static Task<Guid> GetAttributeId(string name) {
+            var directoryPath = directory.ToDirectoryPath()?.Trim().ToLower();
 
-            if (fileAttributes == null) {
-                fileAttributes.AddRange((await FileAttributeCollection.FindAsync(Builders<FileAttribute>.Filter.Empty)).ToEnumerable());
+            var filter = Builders<DirectoryInformation>.Filter.Where(item => item.DriveId == drive.Id && item.Path == directoryPath);
+
+            var result = await (await DirectoryInformationCollection.FindAsync(filter)).FirstOrDefaultAsync();
+
+            if (result != null) {
+                return result.Id;
             }
 
-            var fi = fileAttributes.FirstOrDefault(item => item.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-            if (fi == null) {
-                fi = new FileAttribute() {
-                    Name = name
-                };
-                await FileAttributeCollection.ReplaceOneAsync(Builders<FileAttribute>.Filter.Eq(item => item.Name, fi.Name), fi);
-                fileAttributes.Add(fi);
-            }
-            return fi.AttributeId;
-
-        }
-
-        public static int GetDirectoryId(SQLiteConnection db, DriveInformation drive, DirectoryInfo directory) {
-
-            var directoryPath = directory.ToDirectoryPath();
-            directoryPath = (directoryPath ?? string.Empty).Trim();
-
-            var cmd = db.CreateCommand("Select * from " + typeof(DirectoryInformation).Name + " Where DriveId = ? AND Path = ?", drive.DriveId, directoryPath);
-            var retVal = cmd.ExecuteQuery<DirectoryInformation>().FirstOrDefault();
-
-            if (retVal != null) {
-                return retVal.DirectoryId;
-            }
-
-            int? parentDirectoryInfo = null;
+            Guid? parentDirectoryInfo = null;
 
             if (directory.Parent != null) {
                 var parentName = directory.Parent.FullName.Substring(3);
-                parentDirectoryInfo = GetDirectoryId(db, drive, directory.Parent);
+                parentDirectoryInfo = await GetDirectoryId(drive, directory.Parent);
             }
 
             var directoryName = directory.Name;
@@ -120,15 +108,15 @@ namespace FileParser.Data {
 
             //create a new record
             var newDirectory = new DirectoryInformation() {
-                DriveId = drive.DriveId,
+                DriveId = drive.Id,
                 Name = directoryName,
-                ParentDirectoryId = parentDirectoryInfo.HasValue ? parentDirectoryInfo : null,
+                ParentDirectoryId = parentDirectoryInfo,
                 Path = directoryPath
             };
 
-            db.Insert(newDirectory);
+            await DirectoryInformationCollection.InsertOneAsync(newDirectory);
 
-            return newDirectory.DirectoryId;
+            return newDirectory.Id;
         }
 
     }

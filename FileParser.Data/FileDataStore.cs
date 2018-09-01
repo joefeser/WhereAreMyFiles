@@ -26,49 +26,36 @@ THE SOFTWARE.
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.IO;
-using System.Management;
-using SQLite;
-using System.Runtime.InteropServices;
+using System.Threading.Tasks;
+using MongoDB.Driver;
 
 namespace FileParser.Data {
 
     public class FileDataStore {
 
-        public static void ProcessPath(string databasePath, string filePath) {
+        public static async Task ProcessPath(string filePath) {
 
-            //TODO ensure directory exists for the database
-            using (var db = new SQLiteConnection(databasePath)) {
+            await DatabaseLookups.CreateTables();
 
-                DatabaseLookups.CreateTables(db);
+            var hdCollection = await DriveUtilities.ProcessDriveList();
 
-                var hdCollection = DriveUtilities.ProcessDriveList(db);
+            var start = DateTime.Now;
 
-                var start = DateTime.Now;
+            List<string> arrHeaders = DriveUtilities.GetFileAttributeList();
 
-                List<string> arrHeaders = DriveUtilities.GetFileAttributeList(db);
+            var directory = new DirectoryInfo(filePath);
 
-                var directory = new DirectoryInfo(filePath);
+            var driveLetter = directory.FullName.Substring(0, 1);
+            //TODO line it up with the size or the serial number since we will have removable drives.
+            var drive = hdCollection.FirstOrDefault(letter => letter.DriveLetter.Equals(driveLetter, StringComparison.OrdinalIgnoreCase));
 
-                var driveLetter = directory.FullName.Substring(0, 1);
-                //TODO line it up with the size or the serial number since we will have removable drives.
-                var drive = hdCollection.FirstOrDefault(letter => letter.DriveLetter.Equals(driveLetter, StringComparison.OrdinalIgnoreCase));
-
-                if (directory.Exists) {
-                    ProcessFolder(db, drive, arrHeaders, directory);
-                }
-
-                //just in case something blew up and it is not committed.
-                if (db.IsInTransaction) {
-                    db.Commit();
-                }
-
-                db.Close();
+            if (directory.Exists) {
+                await ProcessFolder(drive, directory, arrHeaders);
             }
         }
 
-        private static void ProcessFolder(SQLiteConnection db, DriveInformation drive, List<string> arrHeaders, DirectoryInfo directory) {
+        private static async Task ProcessFolder(DriveInformation drive, DirectoryInfo directory, List<string> arrHeaders) {
 
             try {
 
@@ -81,19 +68,16 @@ namespace FileParser.Data {
 
                 //go get the cached items for the folder.
 
-                var directoryId = DatabaseLookups.GetDirectoryId(db, drive, directory);
+                var directoryId = await DatabaseLookups.GetDirectoryId(drive, directory);
 
-                var cmd = db.CreateCommand("Select * from " + typeof(FileInformation).Name + " Where DriveId = ? AND DirectoryId = ?", drive.DriveId, directoryId);
-                var databaseFiles = cmd.ExecuteQuery<FileInformation>();
+                //var cmd = db.CreateCommand("Select * from " + typeof(FileInformation).Name + " Where DriveId = ? AND DirectoryId = ?", drive.Id, directoryId);
+                var databaseFiles = await (await DatabaseLookups.FileInformationCollection.FindAsync(Builders<FileInformation>.Filter.Where(item => item.DriveId == drive.Id && item.DirectoryId == directoryId))).ToListAsync();
 
                 //obtain the file metadata for all of the files in the directory so we can determine if we care about this folder.
 
                 var processList = GetFilesToProcess(databaseFiles, arrHeaders, directory);
 
                 if (processList.Count > 0) {
-
-                    db.BeginTransaction();
-
                     Shell32.Shell shell = new Shell32.Shell();
                     Shell32.Folder folder = shell.NameSpace(directory.FullName);
 
@@ -111,7 +95,7 @@ namespace FileParser.Data {
 
                                     if (!string.IsNullOrWhiteSpace(value)) {
                                         headerList.Add(new FileAttributeInformation() {
-                                            AttributeId = DatabaseLookups.GetAttributeId(db, header),
+                                            Attribute = header,
                                             Value = value
                                         });
                                     }
@@ -125,40 +109,38 @@ namespace FileParser.Data {
 
                                 if (fileInfo == null) {
                                     fileInfo = new FileInformation() {
-                                        DriveId = drive.DriveId,
+                                        DriveId = drive.Id,
                                         DirectoryId = directoryId,
                                         FileName = fi.Name
                                     };
                                     SetFileInformation(fi, fileInfo);
-                                    db.Insert(fileInfo);
+                                    await DatabaseLookups.FileInformationCollection.InsertOneAsync(fileInfo);
                                     Console.WriteLine("Inserted:" + fi.FullName);
                                 }
                                 else {
                                     SetFileInformation(fi, fileInfo);
-                                    db.Update(fileInfo);
+                                    await DatabaseLookups.FileInformationCollection.ReplaceOneAsync(f => f.Id == fileInfo.Id, fileInfo);
 
-                                    var deleteCount = db.Execute("Delete from " + typeof(FileAttributeInformation).Name + " WHERE FileId = ?", fileInfo.FileId);
+                                    var deleteCount = await DatabaseLookups.FileAttributeInformationCollection.DeleteManyAsync(Builders<FileAttributeInformation>.Filter.Where(f => f.FileId == fileInfo.Id));
                                     Console.WriteLine("Changed:" + fi.FullName);
                                 }
 
                                 //save the headers
-                                headerList.ForEach(hl => hl.FileId = fileInfo.FileId);
-                                db.InsertAll(headerList);
+                                headerList.ForEach(hl => hl.FileId = fileInfo.Id);
+
+                                await DatabaseLookups.FileAttributeInformationCollection.InsertManyAsync(headerList);
                             }
                         }
                         catch (Exception ex) {
                             Console.WriteLine(ex.ToString());
                         }
                     }
-
-                    db.Commit();
-
                 }
 
                 //see if we have any additional folders. If we get access denied it will throw an error
                 try {
                     foreach (var subDirectory in directory.GetDirectories()) {
-                        ProcessFolder(db, drive, arrHeaders, subDirectory);
+                        await ProcessFolder(drive, subDirectory, arrHeaders);
                     }
                 }
                 catch (Exception ex) {
@@ -183,14 +165,14 @@ namespace FileParser.Data {
         }
 
         private static List<string> _ignoreHeaderList = new List<string>(new string[] { "Computer",
-                                                                                        "Date accessed", 
-                                                                                        "Date created", 
-                                                                                        "Date modified", 
-                                                                                        "Filename", 
+                                                                                        "Date accessed",
+                                                                                        "Date created",
+                                                                                        "Date modified",
+                                                                                        "Filename",
                                                                                         "Folder name",
                                                                                         "Folder path",
                                                                                         "Folder",
-                                                                                        "Name", 
+                                                                                        "Name",
                                                                                         "Owner",
                                                                                         "Path",
                                                                                         "Size" });

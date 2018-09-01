@@ -27,6 +27,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace TestingApplication {
 
@@ -38,13 +39,17 @@ namespace TestingApplication {
             //FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"D:\ITunes");
             //FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"D:\");
 
-            FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"E:\");
-            FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"F:\");
-            FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"G:\");
-            FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"H:\");
+            Task.Run(async () => {
+                await FileParser.Data.FileDataStore.ProcessPath(@"I:\");
+                //await FileParser.Data.FileDataStore.ProcessPath(@"C:\Work");
+            });
+
+            //FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"F:\");
+            //FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"G:\");
+            //FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"H:\");
 
             //FileParser.Data.FileDataStore.ProcessPath(@"..\..\..\FileDatabase.db3", @"D:\!!!!ToCopy");
-            Console.WriteLine();
+            Console.Read();
         }
     }
 

@@ -28,13 +28,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Management;
-using SQLite;
+using MongoDB.Driver;
+using System.Threading.Tasks;
 
 namespace FileParser.Data {
 
     public static class DriveUtilities {
 
-        public static List<string> GetFileAttributeList(SQLiteConnection db) {
+        public static List<string> GetFileAttributeList() {
             //TODO determine if we need to use the drive we are on or can we use any folder. Also can this list change?
             var arrHeaders = new List<string>();
 
@@ -46,18 +47,12 @@ namespace FileParser.Data {
                 if (String.IsNullOrEmpty(header))
                     break;
                 arrHeaders.Add(header);
-                //add the header to the db.
-                var attId = DatabaseLookups.GetAttributeId(db, header);
             }
             return arrHeaders;
         }
 
-        public static List<DriveInformation> ProcessDriveList(SQLiteConnection db) {
-            db.BeginTransaction();
-
-            var cmd = db.CreateCommand("Select * from DriveInformation");
-
-            var hdCollection = cmd.ExecuteQuery<DriveInformation>();
+        public static async Task<List<DriveInformation>> ProcessDriveList() {
+            var hdCollection = await (await DatabaseLookups.DriveInformationCollection.FindAsync(Builders<DriveInformation>.Filter.Empty)).ToListAsync();
 
             ManagementObjectSearcher searcher = null;
 
@@ -125,7 +120,7 @@ namespace FileParser.Data {
                     hd.SerialNo = volumeSerialNumber;
                     hd.TotalSize = totalSize;
                     hd.VolumeName = volumeName;
-                    db.Insert(hd);
+                    await DatabaseLookups.DriveInformationCollection.InsertOneAsync(hd);
                 }
                 else {
                     hd.DriveLetter = driveLetter;
@@ -133,7 +128,7 @@ namespace FileParser.Data {
                     hd.SerialNo = volumeSerialNumber;
                     hd.TotalSize = totalSize;
                     hd.VolumeName = volumeName;
-                    db.Update(hd);
+                    await DatabaseLookups.DriveInformationCollection.ReplaceOneAsync(Builders<DriveInformation>.Filter.Where(item => item.Id == hd.Id), hd);
                 }
                 //now we need to remove any drive with the same letter that is not the current one.
 
@@ -163,15 +158,13 @@ namespace FileParser.Data {
 
                         //only perform updates
                         if (hd != null) {
-                            hd.Model = wmi_HD["Model"].ToString();
-                            hd.DriveType = wmi_HD["InterfaceType"].ToString();
-                            db.Update(hd);
+                            hd.Model = wmi_HD["Model"]?.ToString();
+                            hd.DriveType = wmi_HD["InterfaceType"]?.ToString();
+                            await DatabaseLookups.DriveInformationCollection.ReplaceOneAsync(Builders<DriveInformation>.Filter.Where(item => item.Id == hd.Id), hd);
                         }
                     }
                 }
             }
-
-            db.Commit();
             return hdCollection;
         }
 
