@@ -30,6 +30,7 @@ using System.Text;
 using System.Management;
 using MongoDB.Driver;
 using System.Threading.Tasks;
+using System.Reflection;
 
 namespace FileParser.Data {
 
@@ -39,8 +40,7 @@ namespace FileParser.Data {
             //TODO determine if we need to use the drive we are on or can we use any folder. Also can this list change?
             var arrHeaders = new List<string>();
 
-            Shell32.Shell shell = new Shell32.Shell();
-            Shell32.Folder folder = shell.NameSpace(@"C:\");
+            var folder = GetShell32Folder(@"C:\");
 
             for (int i = 0; i < short.MaxValue; i++) {
                 string header = folder.GetDetailsOf(null, i);
@@ -49,6 +49,12 @@ namespace FileParser.Data {
                 arrHeaders.Add(header);
             }
             return arrHeaders;
+        }
+
+        public static Shell32.Folder GetShell32Folder(string folderPath) {
+            Type shellAppType = Type.GetTypeFromProgID("Shell.Application");
+            Object shell = Activator.CreateInstance(shellAppType);
+            return (Shell32.Folder)shellAppType.InvokeMember("NameSpace", BindingFlags.InvokeMethod, null, shell, new object[] { folderPath });
         }
 
         public static async Task<List<DriveInformation>> ProcessDriveList() {

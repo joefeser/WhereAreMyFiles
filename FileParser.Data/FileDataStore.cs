@@ -78,8 +78,8 @@ namespace FileParser.Data {
                 var processList = GetFilesToProcess(databaseFiles, arrHeaders, directory);
 
                 if (processList.Count > 0) {
-                    Shell32.Shell shell = new Shell32.Shell();
-                    Shell32.Folder folder = shell.NameSpace(directory.FullName);
+
+                    var folder = DriveUtilities.GetShell32Folder(directory.FullName);
 
                     foreach (var item in processList) {
                         try {
@@ -156,7 +156,7 @@ namespace FileParser.Data {
 
         }
 
-        private static List<string> _directoryIgnoreList = new List<string>(new string[] { "$RECYCLE.BIN", "System Volume Information" });
+        private static List<string> _directoryIgnoreList = new List<string>(new string[] { "$RECYCLE.BIN", "System Volume Information", ".git" });
 
         private static bool IgnoreFolder(DirectoryInfo di) {
             var folder = di.ToDirectoryPath();
@@ -218,8 +218,7 @@ namespace FileParser.Data {
 
                 //reduce the folderinfo2 into a list we can process.
 
-                Shell32.Shell shell = new Shell32.Shell();
-                Shell32.Folder folder = shell.NameSpace(di.FullName);
+                var folder = DriveUtilities.GetShell32Folder(di.FullName);
 
                 //thanks to this post http://geraldgibson.net/dnn/Home/CZipFileCompression/tabid/148/Default.aspx
                 var nonfiltered = (Shell32.FolderItems3)folder.Items();
