@@ -53,6 +53,7 @@ namespace FileParser.Data {
             if (directory.Exists) {
                 await ProcessFolder(drive, directory, arrHeaders);
             }
+            Console.WriteLine($"Completed {filePath} {DateTime.Now.ToLongTimeString()}");
         }
 
         private static async Task ProcessFolder(DriveInformation drive, DirectoryInfo directory, List<string> arrHeaders) {
